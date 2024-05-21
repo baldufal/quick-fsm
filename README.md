@@ -1,4 +1,5 @@
-### Introduction
+# QuickFSM
+
 QuickFSM is a simple finite state machine react component that can be edited graphically and evaluated programmatically.
 
 - Easy to set up: Single React component with just 4 mandatory props
@@ -7,14 +8,14 @@ QuickFSM is a simple finite state machine react component that can be edited gra
 - Users can assign actions to states and triggers to transitions
 - Triggers and actions are defined by the developer
 
-### Installation
+## Installation
 ```shell
 npm install quick-fsm    # using npm
 pnpm install quick-fsm   # using pnpm
 yarn add quick-fsm       # using yarn
 ```
 
-### Usage
+## Usage
 As the component uses UI components from the Chakra UI library, it must be wrapped in the ChakraProvider.
 ```js
 import { ChakraProvider, VStack, HStack, Button } from "@chakra-ui/react";
