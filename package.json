@@ -1,0 +1,45 @@
+{
+  "name": "quick-fsm",
+  "version": "1.0.5",
+  "main": "dist/cjs/index.js",
+  "files": [
+    "dist"
+  ],
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "rollup": "rollup -c --bundleConfigAsCjs"
+  },
+  "author": "falkinshack",
+  "license": "MIT",
+  "description": "Simple finite state machine react component that can be edited graphically and evaluated programmatically",
+  "type": "module",
+  "keywords": [
+    "fsm",
+    "finite state machine",
+    "react",
+    "visual programming"
+  ],
+  "devDependencies": {
+    "@chakra-ui/react": "2.x",
+    "@rollup/plugin-commonjs": "^25.0.7",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^11.1.6",
+    "@types/react": "^18.3.1",
+    "react": "18.x",
+    "react-dom": "18.x",
+    "reactflow": "11.x",
+    "rollup": "^4.17.2",
+    "rollup-plugin-dts": "^6.1.0",
+    "rollup-plugin-peer-deps-external": "^2.2.4",
+    "rollup-plugin-postcss": "^4.0.2",
+    "tslib": "^2.6.2",
+    "typescript": "^5.4.5"
+  },
+  "peerDependencies": {
+    "@chakra-ui/react": "2.x",
+    "react": "18.x",
+    "react-dom": "18.x",
+    "reactflow": "11.x"
+  }
+}
