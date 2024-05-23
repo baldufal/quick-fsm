@@ -1,1 +1,1 @@
-export {default as QuickFSM, Trigger, Action} from './QuickFSM';
+export {default as QuickFSM, FsmTrigger, FsmAction, FsmHandle, FsmState, FsmTransition} from './QuickFSM';

@@ -16,7 +16,7 @@ import { customDeepCopy } from './utils';
 import useStore, { RFState } from './store';
 import { useShallow } from 'zustand/react/shallow';
 
-export interface QuickFSMHandle {
+export interface FsmHandle {
   triggerTransition: (triggerId: number) => void;
 }
 
@@ -33,12 +33,26 @@ const connectionLineStyle = {
   stroke: 'black',
 };
 
+export type FsmTrigger = {
+  id: number;
+  label: string;
+  icon?: IconType;
+  color: string;
+};
+
 export type Trigger = {
   id: number;
   label: string;
   icon?: IconType;
   color: string;
   active: boolean;
+};
+
+export type FsmAction = {
+  id: number;
+  label: string;
+  icon?: IconType;
+  color: string;
 };
 
 export type Action = {
@@ -61,8 +75,8 @@ export type FsmTransition = {
 export type AutomatonProps = {
   initialStates?: FsmState[];
   initialTransitions?: FsmTransition[];
-  triggers: Trigger[];
-  actions: Action[];
+  triggers: FsmTrigger[];
+  actions: FsmAction[];
   actionCallback: (id: number) => void;
 };
 
@@ -85,6 +99,9 @@ const QuickFSM = forwardRef(({ initialStates, initialTransitions, triggers, acti
 
   // This index is used as id for the next node
   const [nextNodeIndex, setNextNodeIndex] = React.useState<number>(initialStates ? initialStates.length : 0);
+  
+  const internal_triggers = triggers.map((trigger) => ({ ...trigger, active: false }));
+  const internal_actions = actions.map((action) => ({ ...action, active: false }));
 
   // Constructs a new node from the provided label
   const constructNode = (node: FsmState, index: number, center?: boolean, active?: boolean) => {
@@ -102,7 +119,7 @@ const QuickFSM = forwardRef(({ initialStates, initialTransitions, triggers, acti
       },
       data: {
         label: node.label,
-        actions: customDeepCopy(actions),
+        actions: customDeepCopy(internal_actions),
         active: active ? true : false
       },
     };
@@ -131,7 +148,7 @@ const QuickFSM = forwardRef(({ initialStates, initialTransitions, triggers, acti
               source: `${transition.source}`,
               target: `${transition.target}`,
               data: {
-                triggers: customDeepCopy(triggers)
+                triggers: customDeepCopy(internal_triggers)
               }
             };
             filtered.push(someNewValue);
@@ -181,7 +198,7 @@ const QuickFSM = forwardRef(({ initialStates, initialTransitions, triggers, acti
       color: 'black',
     },
     data: {
-      triggers: customDeepCopy(triggers)
+      triggers: customDeepCopy(internal_triggers)
     }
   };
 
