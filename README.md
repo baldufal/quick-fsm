@@ -9,6 +9,9 @@ Choose this if you need basic functionality with minimal setup effort.
 - Users can assign actions to states and triggers to transitions
 - Triggers and actions are defined by the developer
 
+
+  ![screenshot](screenshot.png)
+
 ## Installation
 ```shell
 npm install quick-fsm    # using npm
@@ -88,4 +91,5 @@ function App() {
   );
 }
 ```
-
+## Demo project
+There is a [demo project in this repository](demo).
