@@ -1,40 +1,48 @@
 import { useCallback, useState } from 'react';
-import { BaseEdge, EdgeLabelRenderer, EdgeProps, getStraightPath, useStore } from 'reactflow';
-import './automatonEdge.css'
-import { Button, Modal, ModalBody, ModalCloseButton, ModalContent, ModalFooter, ModalHeader, ModalOverlay, VStack, Wrap, WrapItem, useDisclosure, Text } from '@chakra-ui/react';
+import { BaseEdge, EdgeLabelRenderer, EdgeProps, getStraightPath,useStore as useReactFlowStore } from 'reactflow';
+import { IconButton, Wrap, WrapItem, useDisclosure } from '@chakra-ui/react';
 import React from 'react';
 import { Trigger } from '../QuickFSM';
-import { getEdgeParams } from "./utils"
+import { getEdgeParams } from "./edgeUtils"
+import { MdEditNote } from 'react-icons/md';
+import ActionTrigger from '../ActionTrigger/ActionTrigger';
+import SelectActionTriggerModal from '../ActionTrigger/SelectActionTriggerModal';
+import "./automatonEdge.css"
+import useStore from '../store';
 
 export type EdgeData = {
     triggers: Trigger[];
 };
 
 function AutomatonEdge({ id, source, target, markerEnd, style, data }: EdgeProps<EdgeData>) {
-    const sourceNode = useStore(useCallback((store) => store.nodeInternals.get(source), [source]));
-    const targetNode = useStore(useCallback((store) => store.nodeInternals.get(target), [target]));
-
-    const { isOpen, onOpen, onClose } = useDisclosure()
-
-    const [selectedTriggers, setSelectedTriggers] = useState<Trigger[]>([]);
-    const triggers = (data && data.triggers) ? data.triggers : [];
-    const [unselectedTriggers, setUnselectedTriggers] = useState<Trigger[]>(triggers);
-
-
-    let horizontal = true;
-    if (sourceNode?.positionAbsolute && targetNode?.positionAbsolute)
-        horizontal = Math.abs(sourceNode?.positionAbsolute?.x - targetNode?.positionAbsolute?.x) >
-            Math.abs(sourceNode?.positionAbsolute?.y - targetNode?.positionAbsolute?.y)
-
+    const sourceNode = useReactFlowStore(useCallback((store) => store.nodeInternals.get(source), [source]));
+    const targetNode = useReactFlowStore(useCallback((store) => store.nodeInternals.get(target), [target]));
     if (!sourceNode || !targetNode) {
         return null;
     }
 
+    const { isOpen, onOpen, onClose } = useDisclosure()
+
+    const [selectedTriggers, setSelectedTriggers] = React.useState<Trigger[]>([]);
+    const triggers = (data && data.triggers) ? data.triggers : [];
+    const [unselectedTriggers, setUnselectedTriggers] = useState<Trigger[]>(triggers);
+
+    const onEdgesChange = useStore((state) => state.onEdgesChange);
+
+    const onEdgeClickX = () => {
+        onEdgesChange([{ id: id, type: "remove" }]);
+    };
+
     const { sx, sy, tx, ty } = getEdgeParams(sourceNode, targetNode);
 
+    const length = Math.sqrt(((tx - sx) ** 2) + ((ty - sy) ** 2)) + 1;
+    const dx = (tx - sx) / length;
+    const dy = (ty - sy) / length;
+    const diagonality = 1 - Math.abs(Math.abs(dx) - Math.abs(dy));
+
     const [edgePath, labelx, labely] = getStraightPath({
-        sourceX: sx,
-        sourceY: sy,
+        sourceX: sx - dx,
+        sourceY: sy - dy,
         targetX: tx,
         targetY: ty,
     });
@@ -43,11 +51,21 @@ function AutomatonEdge({ id, source, target, markerEnd, style, data }: EdgeProps
         <>
             <BaseEdge id={id} path={edgePath} markerEnd={markerEnd} style={style} />
             <EdgeLabelRenderer>
+                <button
+                    style={{
+                        transform: `translate(-50%,-50%) translate(${sx}px,${sy}px) translate(${15 * dx * (1 + diagonality)}px, ${15 * dy * (1 + diagonality)}px) `,
+                        pointerEvents: "all"
+                    }}
+                    className="nodrag nopan edgedeletebutton"
+                    onClick={onEdgeClickX}
+                >
+                    X
+                </button>
+
                 <div
                     style={{
-                        width: '${horizontal ? "100px" : "100%"}',
                         position: 'absolute',
-                        transform: `translate(-50%, -50%) translate(${labelx}px,${labely}px) rotate(${Math.atan((ty - sy) / (tx - sx))}rad)`,
+                        transform: `translate(-50%, -50%) translate(${labelx}px,${labely}px) translate(${15 * dx}px, ${15 * dy}px) rotate(${Math.atan((ty - sy) / (tx - sx))}rad)`,
                         fontSize: 12,
                         // everything inside EdgeLabelRenderer has no pointer events by default
                         // if you have an interactive element, set pointer-events: all
@@ -58,80 +76,39 @@ function AutomatonEdge({ id, source, target, markerEnd, style, data }: EdgeProps
                 >
                     <Wrap align={"center"} justify={"center"}>
                         {selectedTriggers.map((trigger, trigggerIndex) =>
-                            <WrapItem bg={trigger.color} key={trigggerIndex}>
-                                {trigger.label}
-                            </WrapItem>)}
+                            <ActionTrigger
+                                actionTrigger={trigger}
+                                key={trigggerIndex} />
+                        )
+                        }
                         <WrapItem key={-1}>
-                            <Button onClick={onOpen}     >
-                                Edit
-                            </Button>
+                            <IconButton
+                                onClick={onOpen}
+                                width={"25px"}
+                                height={"25px"}
+                                size={"25px"}
+                                backgroundColor={"black"}
+                                _hover={{ background: "grey" }}
+                                background={"rgba(255,255,255,0.8)"}
+                                aria-label='Edit actions'
+                                icon={<MdEditNote
+                                    size={"20px"}
+                                    color='white' />}
+                            />
                         </WrapItem>
                     </Wrap>
                 </div>
             </EdgeLabelRenderer>
 
-            <Modal isOpen={isOpen} onClose={onClose}>
-                <ModalOverlay />
-                <ModalContent>
-                    <ModalHeader>Click actions to (de)select</ModalHeader>
-                    <ModalCloseButton />
-                    <ModalBody>
-                        <VStack>
-                            <Text>
-                                Avialable actions:
-                            </Text>
-                            <Wrap align={"center"}>{unselectedTriggers.map((trigger, triggerIndex) =>
-                                <WrapItem
-                                    bg={trigger.color}
-                                    key={triggerIndex}>
-                                    <Button onClick={() => {
-                                        const trig = triggers.find((trig) => trig == trigger);
-                                        if (trig)
-                                            trig.active = true;
-                                        setSelectedTriggers([...selectedTriggers, unselectedTriggers[triggerIndex]])
-                                        setUnselectedTriggers([
-                                            ...unselectedTriggers.slice(0, triggerIndex),
-                                            ...unselectedTriggers.slice(triggerIndex + 1)
-                                        ])
-                                    }
-                                    }>
-                                        {trigger.label}
-                                    </Button>
-
-                                </WrapItem>)}
-                            </Wrap>
-                            <Text>
-                                Selected actions:
-                            </Text>
-                            <Wrap align={"center"}>{selectedTriggers.map((trigger, triggerIndex) =>
-                                <WrapItem
-                                    bg={trigger.color}
-                                    key={triggerIndex}>
-                                    <Button onClick={() => {
-                                        const trig = triggers.find((trig) => trig == trigger);
-                                        if (trig)
-                                            trig.active = false;
-                                        setUnselectedTriggers([...unselectedTriggers, selectedTriggers[triggerIndex]])
-                                        setSelectedTriggers([
-                                            ...selectedTriggers.slice(0, triggerIndex),
-                                            ...selectedTriggers.slice(triggerIndex + 1)
-                                        ])
-                                    }
-                                    }>
-                                        {trigger.label}
-                                    </Button>
-                                </WrapItem>)}
-                            </Wrap>
-                        </VStack>
-                    </ModalBody>
-
-                    <ModalFooter>
-                        <Button colorScheme='blue' mr={3} onClick={onClose}>
-                            Close
-                        </Button>
-                    </ModalFooter>
-                </ModalContent>
-            </Modal>
+            <SelectActionTriggerModal
+                isOpen={isOpen}
+                onClose={onClose}
+                text={'triggers'}
+                all={triggers}
+                selected={selectedTriggers}
+                unselected={unselectedTriggers}
+                setSelected={setSelectedTriggers}
+                setUnSelected={setUnselectedTriggers} />
         </>
 
     );

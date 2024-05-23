@@ -1,1 +1,1 @@
-export {default, Trigger, Action, AutoNode} from './QuickFSM';
+export {default, Trigger, Action} from './QuickFSM';

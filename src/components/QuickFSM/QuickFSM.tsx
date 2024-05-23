@@ -1,21 +1,20 @@
-import { forwardRef, useCallback, useImperativeHandle, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle } from 'react';
 import ReactFlow, {
   Controls,
-  Panel,
   MarkerType,
-  addEdge,
-  useEdgesState,
-  useNodesState,
-  Connection,
   Edge,
-  Background,
+  Background
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-import AutomatonNode from './AutomatonNode/AutomatonNode';
-import AutomatonEdge, { EdgeData } from './AutomatonEdge/AutomatonEdge';
-import { Button, ChakraProvider } from '@chakra-ui/react';
+import AutomatonNode, { } from './AutomatonNode/AutomatonNode';
+import AutomatonEdge from './AutomatonEdge/AutomatonEdge';
 import React from 'react';
 import AutomatonConnectionLine from './AutomatonConnectionLine/AutomatonConnectionLine';
+import { IconType } from 'react-icons';
+import { Button } from '@chakra-ui/react';
+import { customDeepCopy } from './utils';
+import useStore, { RFState } from './store';
+import { useShallow } from 'zustand/react/shallow';
 
 export interface QuickFSMHandle {
   triggerTransition: (triggerId: number) => void;
@@ -37,6 +36,7 @@ const connectionLineStyle = {
 export type Trigger = {
   id: number;
   label: string;
+  icon?: IconType;
   color: string;
   active: boolean;
 };
@@ -44,59 +44,129 @@ export type Trigger = {
 export type Action = {
   id: number;
   label: string;
+  icon?: IconType;
   color: string;
   active: boolean;
 };
 
-export type AutoNode = {
+export type FsmState = {
   label: string;
 }
 
+export type FsmTransition = {
+  source: number;
+  target: number;
+}
+
 export type AutomatonProps = {
-  initialNodes: AutoNode[];
-  initialEdges: Edge<EdgeData>[];
+  initialStates?: FsmState[];
+  initialTransitions?: FsmTransition[];
   triggers: Trigger[];
   actions: Action[];
   actionCallback: (id: number) => void;
 };
 
-const QuickFSM = forwardRef(({ initialNodes, initialEdges, triggers, actions, actionCallback }: AutomatonProps, ref) => {
-  const [activeNode, setActiveNode] = useState<number>(0);
+const selector = (state: RFState) => ({
+  nodes: state.nodes,
+  setNodes: state.setNodes,
+  edges: state.edges,
+  setEdges: state.setEdges,
+  onNodesChange: state.onNodesChange,
+  onEdgesChange: state.onEdgesChange,
+  onConnect: state.onConnect,
+  updateActiveNode: state.updateActiveNode,
+});
 
-  const changeActiveNode = (newActiveNode: number) => {
-    if (nodes.length <= newActiveNode) {
-      // Invalid index
-      changeActiveNode(0);
-      return;
-    }
-    setNodes(prevNodes => prevNodes.map((node, index) => ({
-      ...node,
-      data: {
-        ...node.data,
-        active: index === newActiveNode,
+const QuickFSM = forwardRef(({ initialStates, initialTransitions, triggers, actions, actionCallback }: AutomatonProps, ref) => {
+
+  const { nodes, setNodes, edges, setEdges, onNodesChange, onEdgesChange, onConnect, updateActiveNode } = useStore(
+    useShallow(selector),
+  );
+
+  // This index is used as id for the next node
+  const [nextNodeIndex, setNextNodeIndex] = React.useState<number>(initialStates ? initialStates.length : 0);
+
+  // Constructs a new node from the provided label
+  const constructNode = (node: FsmState, index: number, center?: boolean, active?: boolean) => {
+    const grid = Math.ceil(Math.sqrt(initialStates ? initialStates.length : 3))
+    const nodeX = !center ? 10 + (index % grid) * 450 : index * 10;
+    const nodeY = !center ? 10 + Math.floor(index / grid) * 300 : index * 10;
+
+    return {
+      id: `${index}`,
+      key: index,
+      type: 'automaton',
+      position: {
+        x: nodeX,
+        y: nodeY,
       },
-    })));
+      data: {
+        label: node.label,
+        actions: customDeepCopy(actions),
+        active: active ? true : false
+      },
+    };
+  };
 
-    setActiveNode(newActiveNode);
-    for (var action of nodes[newActiveNode].data.actions)
-      if (action.active)
-        actionCallback(action.id)
+  if (initialStates)
+    useEffect(() => {
+      const initNodes = initialStates.map((node, index) => {
+        return constructNode(node, index, false, index === 0);
+      })
+
+      setNodes(initNodes);
+
+      if (initialTransitions) {
+        const initEdges = initialTransitions.reduce(function (filtered: Edge[], transition, index) {
+          if (
+            transition.source >= 0 &&
+            transition.source < initNodes.length &&
+            transition.target >= 0 &&
+            transition.target < initNodes.length
+          ) {
+            var someNewValue = {
+              id: `${transition.source}-${transition.target}`,
+              key: index,
+              type: 'automaton',
+              source: `${transition.source}`,
+              target: `${transition.target}`,
+              data: {
+                triggers: customDeepCopy(triggers)
+              }
+            };
+            filtered.push(someNewValue);
+          }
+          return filtered;
+        }, []);
+        setEdges(initEdges);
+      }
+
+    }, [initialStates]);
+
+  const changeActiveNode = (newActiveNodeId: string) => {
+    updateActiveNode(newActiveNodeId);
+    const activeNode = nodes.find((node) => node.data.active)
+    if (activeNode)
+      for (var action of activeNode.data.actions) {
+        if (action.active)
+          actionCallback(action.id)
+      }
   }
 
   const triggerTransition = (transitionId: number) => {
-    //console.log("Trigger: " + transitionId);
-    const outgoingEdges = edges.filter((edge) => edge.source == nodes[activeNode].id);
+    const activeNode = nodes.find((node) => node.data.active)
+    if (!activeNode)
+      return;
+    const outgoingEdges = edges.filter((edge) => edge.source == activeNode.id);
 
     const edgeWithMatchingTrigger = outgoingEdges.find(edge =>
-      edge.data?.triggers.some(trigger => trigger.active && trigger.id == transitionId)
+      edge.data?.triggers.some((trigger: Trigger) => trigger.active && trigger.id == transitionId)
     );
 
     if (!edgeWithMatchingTrigger)
       return;
 
-    const newNodeIndex = nodes.findIndex((node) => node.id === edgeWithMatchingTrigger.target)
-    if (newNodeIndex >= 0)
-      changeActiveNode(newNodeIndex);
+    changeActiveNode(edgeWithMatchingTrigger.target);
   };
 
   useImperativeHandle(ref, () => ({
@@ -111,71 +181,47 @@ const QuickFSM = forwardRef(({ initialNodes, initialEdges, triggers, actions, ac
       color: 'black',
     },
     data: {
-      triggers: JSON.parse(JSON.stringify(triggers)) as typeof triggers
+      triggers: customDeepCopy(triggers)
     }
   };
 
-  const initNodes = initialNodes.map((node, nodeIndex) => {
-    return {
-      id: "" + nodeIndex,
-      key: nodeIndex,
-      type: 'automaton',
-      position: { x: 10 + (nodeIndex % 5) * 100, y: 10 + Math.floor(nodeIndex / 5) * 100 },
-      data: {
-        label: node.label,
-        actions: actions,
-        active: nodeIndex == activeNode
-      }
-    }
-  })
-  const [nodes, setNodes, onNodesChange] = useNodesState(initNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-
-  const onConnect = useCallback((params: Edge | Connection) => setEdges((eds) => addEdge(params, eds)), [setEdges]);
-
-
-
-  const updatePos = useCallback(() => {
-    setNodes((nds) => {
-      return nds.map((node) => {
-        return {
-          ...node,
-          position: {
-            x: Math.random() * 1500,
-            y: Math.random() * 1500,
-          },
-        };
-      });
-    });
-  }, []);
-
   return (
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        defaultEdgeOptions={defaultEdgeOptions}
-        connectionLineComponent={AutomatonConnectionLine}
-        connectionLineStyle={connectionLineStyle}
-        fitView
-      >
-        <Controls showInteractive={false} />
-        <Panel position="top-left" className="header">
-          QuickFSM
-        </Panel>
-        <Background />
+    <ReactFlow
+      nodes={nodes}
+      edges={edges}
+      onNodesChange={onNodesChange}
+      onEdgesChange={onEdgesChange}
+      onConnect={onConnect}
+      nodeTypes={nodeTypes}
+      edgeTypes={edgeTypes}
+      defaultEdgeOptions={defaultEdgeOptions}
+      connectionLineComponent={AutomatonConnectionLine}
+      connectionLineStyle={connectionLineStyle}
+      fitView
+    >
+      <Controls showInteractive={false} />
+      <Background color='#E6E6FA' />
 
-        <button
-          onClick={updatePos}
-          style={{ position: 'absolute', right: 10, top: 30, zIndex: 4 }}
-        >
-          change pos
-        </button>
-      </ReactFlow>
+      <Button
+        backgroundColor={"white"}
+        onClick={() => {
+          onNodesChange([{ type: "add", item: constructNode({ label: "New State" }, nextNodeIndex, true) }])
+          setNextNodeIndex(oldIndex => oldIndex + 1)
+        }}
+        style={{
+          position: 'absolute',
+          right: 10,
+          top: 30,
+          zIndex: 4,
+          boxShadow: "0 0 10px rgb(0 0 0 / 0.2)",
+          border: "solid 1px",
+          borderRadius: "0"
+        }}
+        _hover={{ background: "lightgray" }}
+      >
+        Add State
+      </Button>
+    </ReactFlow>
   );
 });
 
