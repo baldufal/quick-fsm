@@ -1,8 +1,9 @@
 # QuickFSM
 
 QuickFSM is a simple finite state machine react component that can be edited graphically and evaluated programmatically.
+Choose this if you need basic functionality with minimal setup effort.
 
-- Easy to set up: Single React component with just 4 mandatory props
+- Easy to set up: Single React component with just 3 mandatory props
 - Written in typescript
 - Users can create and delete states and transitions
 - Users can assign actions to states and triggers to transitions
@@ -18,86 +19,73 @@ yarn add quick-fsm       # using yarn
 ## Usage
 As the component uses UI components from the Chakra UI library, it must be wrapped in the ChakraProvider.
 ```js
-import { ChakraProvider, VStack, HStack, Button } from "@chakra-ui/react";
-import { Action, QuickFSMHandle, Trigger } from "quick-fsm";
-import { useRef } from "react";
-import { MdAccountBalance, MdAlarmOff } from "react-icons/md";
+import { useRef } from 'react';
+import { Button, ChakraProvider, HStack, VStack } from '@chakra-ui/react';
+import { FsmAction, FsmHandle, FsmTrigger, QuickFSM } from 'quick-fsm';
 
+function App() {
 
-function ParentComponent() {
+  const initialStates = [{ label: "One" }, { label: "Two" }, { label: "Three" }];
+  const initialTransitions = [{ source: 0, target: 1 }];
 
-    const initialState = [
-        {
-            label: "One"
-        },
-        {
-            label: "Two"
-        },
-    ];
+  const actions: FsmAction[] = [
+    {
+      id: 0,
+      label: 'A0',
+      color: '#66ff33'
+    },
+    {
+      id: 1,
+      label: 'A1',
+      color: '#33ccff'
+    },
+    {
+      id: 2,
+      label: 'A2',
+      color: '#ff66cc'
+    }
+  ];
 
-    const actions: Action[] = [
-        {
-            id: 0,
-            label: 'On',
-            color: '#66ff33',
-            active: false
-        },
-        {
-            id: 4,
-            label: 'A4',
-            color: '#33ccff',
-            active: false,
-            icon: MdAlarmOff
-        },
-    ];
+  const triggers: FsmTrigger[] = [
+    {
+      id: 0,
+      label: 'T0',
+      color: '#66ff33'
+    },
+    {
+      id: 1,
+      label: 'T1',
+      color: '#33ccff'
+    }
+  ];
 
-    const triggers: Trigger[] = [
-        {
-            id: 0,
-            label: 'T0',
-            color: '#66ff33',
-            active: false
-        },
-        {
-            id: 4,
-            label: 'T4',
-            color: '#33ccff',
-            active: false,
-            icon: MdAccountBalance
-        }
-    ];
+  // We use this to trigger transitions (see below)
+  var fsmRef: React.MutableRefObject<FsmHandle | null> = useRef(null);
 
-    const stateMachineRef = useRef<QuickFSMHandle>(null);
+  // The parent container of QuickFSM always need an explicit height
+  var height = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
 
-
-    const handleTriggerTransition = (triggerId: number) => {
-        if (stateMachineRef.current)
-            stateMachineRef.current.triggerTransition(triggerId);
-    };
-
-    return (
-        <ChakraProvider>
-            <VStack width={"100%"} height={"100%"}>
-                <HStack>
-                    <Button onClick={() => handleTriggerTransition(0)}>
-                        0
-                    </Button>
-                    <Button onClick={() => handleTriggerTransition(1)}>
-                        1
-                    </Button>
-                    <Button onClick={() => handleTriggerTransition(2)}>
-                        2
-                    </Button>
-                </HStack>
-                <QuickFSM
-                    ref={stateMachineRef}
-                    initialState={initialState}
-                    triggers={triggers}
-                    actions={actions}
-                    actionCallback={(id) => console.log("Action: " + id)} />
-            </VStack>
-        </ChakraProvider>
-    );
+  return (
+    // Always surround QuickFSM in a Chakra provider
+    <ChakraProvider>
+      <VStack height={height}>
+        <HStack>
+          <Button bg={'#66ff33'} onClick={() => fsmRef.current?.triggerTransition(0)}>T0</Button>
+          <Button bg={'#33ccff'} onClick={() => fsmRef.current?.triggerTransition(1)}>T1</Button>
+        </HStack>
+        <QuickFSM
+          ref={fsmRef}
+          initialStates={initialStates}
+          initialTransitions={initialTransitions}
+          triggers={triggers}
+          actions={actions}
+          actionCallback={function (id: number): void {
+            // This is the callback to received the actions of the active node
+            console.log(id);
+          }} />
+      </VStack>
+    </ChakraProvider>
+  );
 }
 ```
 
