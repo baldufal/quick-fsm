@@ -6,6 +6,8 @@ It creates the two buttons and the component itself with a few initial states an
 The buttons can be used to trigger transisions.
 If the states are configured to contain actions, their indices are printed to the console.
 
+![screenshot](screenshot.png)
+
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
 ## Getting started
